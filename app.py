@@ -14,29 +14,29 @@ st.markdown("""
     .main-title {
         color: #004a99;
         font-family: 'Segoe UI', sans-serif;
-        font-weight: 800;
+        font-weight: 700;
         text-align: center;
-        margin-top: 20px;
-        margin-bottom: 5px;
-    }
-    .sub-title {
-        color: #555;
-        font-family: 'Segoe UI', sans-serif;
-        text-align: center;
-        font-weight: 400;
-        letter-spacing: 1px;
-        margin-bottom: 20px;
+        margin-top: -10px; /* Logo ile başlığı yakınlaştırır */
+        font-size: 1.8rem; /* Başlık boyutu küçültüldü */
     }
     .signature {
         color: #888;
         font-family: 'Segoe UI', sans-serif;
-        font-size: 0.9em;
+        font-size: 0.85rem;
         text-align: center;
         font-style: italic;
+        margin-top: -5px;
     }
     .stMetric {
         border: 1px solid #004a99;
         border-radius: 8px;
+        background-color: rgba(0, 74, 153, 0.02);
+    }
+    /* Logo konteyneri için özel ayar */
+    .logo-container {
+        display: flex;
+        justify-content: center;
+        padding: 20px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -47,10 +47,13 @@ if os.path.exists("logo.jpg"):
 
 # --- 2. LOGO (ESA.PNG) VE BAŞLIKLAR ---
 st.markdown("<br>", unsafe_allow_html=True)
-col1, col2, col3 = st.columns([2, 1, 2]) # Logoyu ortalamak için
+
+# Logoyu büyütmek için sütun oranlarını değiştirdik (Logo alanı genişledi)
+col1, col2, col3 = st.columns([1.5, 1.2, 1.5]) 
 
 with col2:
     if os.path.exists("esa.png"):
+        # Logo genişliği artırıldı
         st.image("esa.png", use_container_width=True)
     else:
         st.warning("⚠️ esa.png bulunamadı.")
@@ -61,7 +64,7 @@ st.markdown('<p class="signature">Hazırlayan: Onur Sinoplu</p>', unsafe_allow_h
 st.markdown("---")
 
 # --- DOSYA YÜKLEME ---
-uploaded_file = st.file_uploader("📊 SAP ZMM012 Raporunu Buraya Yükleyin", type=['xlsx', 'csv'])
+uploaded_file = st.file_uploader("📊 SAP ZMM012 Raporunu Buraya Sürükleyin", type=['xlsx', 'csv'])
 
 if uploaded_file:
     try:
