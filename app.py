@@ -14,19 +14,20 @@ st.markdown("""
     .main-title {
         color: #004a99;
         font-family: 'Segoe UI', sans-serif;
-        font-weight: 600;
+        font-weight: 700;
         text-align: center;
-        margin-top: -15px; /* Logoya daha da yakınlaştırdık */
-        font-size: 1.1rem; /* Başlık boyutu yaklaşık yarıya indirildi */
-        letter-spacing: 1px;
+        margin-top: -25px; /* Logoya iyice yaklaştırır */
+        font-size: 20px; /* Net ve küçük bir değer */
+        letter-spacing: 0.5px;
+        line-height: 1.2;
     }
     .signature {
-        color: #999;
+        color: #aaaaaa;
         font-family: 'Segoe UI', sans-serif;
-        font-size: 0.75rem; /* İmza boyutu da orantılı olarak küçültüldü */
+        font-size: 13px;
         text-align: center;
         font-style: italic;
-        margin-top: -8px;
+        margin-top: 5px;
     }
     .stMetric {
         border: 1px solid #004a99;
@@ -43,18 +44,17 @@ if os.path.exists("logo.jpg"):
 # --- 2. LOGO (ESA.PNG) VE BAŞLIKLAR ---
 st.markdown("<br>", unsafe_allow_html=True)
 
-# Logo alanı (Orta sütun geniş tutuldu)
+# Logo alanı
 col1, col2, col3 = st.columns([1.5, 1.2, 1.5]) 
-
 with col2:
     if os.path.exists("esa.png"):
         st.image("esa.png", use_container_width=True)
     else:
         st.warning("⚠️ esa.png bulunamadı.")
 
-# Başlık ve Hazırlayan Bilgisi
-st.markdown('<h1 class="main-title">TEDARİK VE TİCARİ YÖNETİM STOK KONTROL SAYFASI</h1>', unsafe_allow_html=True)
-st.markdown('<p class="signature">Hazırlayan: Onur Sinoplu</p>', unsafe_allow_html=True)
+# BAŞLIK (h1 yerine doğrudan div/p kullanarak boyutu sabitledik)
+st.markdown('<div class="main-title">TEDARİK VE TİCARİ YÖNETİM STOK KONTROL SAYFASI</div>', unsafe_allow_html=True)
+st.markdown('<div class="signature">Hazırlayan: Onur Sinoplu</div>', unsafe_allow_html=True)
 st.markdown("---")
 
 # --- DOSYA YÜKLEME ---
