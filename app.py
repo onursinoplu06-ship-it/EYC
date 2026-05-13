@@ -1,83 +1,85 @@
 import streamlit as st
 import pandas as pd
+import os
 
-# Sayfa Genişlik ve Başlık Ayarı
+# Sayfa Ayarları
 st.set_page_config(page_title="Enerjisa Üretim - Stok Kontrol", layout="wide")
 
-# --- LOGO VE BAŞLIK ALANI ---
-# Logo ekleme (Web üzerinden resmi logoyu çeker)
-st.image("https://www.enerjisauretim.com.tr/assets/images/logo.png", width=200)
+# Logo ve Başlık Alanı
+col1, col2 = st.columns([1, 4])
+with col1:
+    if os.path.exists("logo.jpg"):
+        st.image("logo.jpg", width=150)
+    else:
+        st.write("🏢") # Logo bulunamazsa bir bina ikonu gösterir
 
-st.title("🏢 ENERJİSA ÜRETİM TEDARİK VE TİCARİ YÖNETİM STOK KONTROL SAYFASI")
+with col2:
+    st.title("ENERJİSA ÜRETİM")
+    st.subheader("STOK KONTROL VE ANALİZ SAYFASI")
+
 st.markdown("---")
 
-# Dosya Yükleme Alanı
-uploaded_file = st.file_uploader("SAP ZMM012 Raporunu (Excel veya CSV) buraya yükleyin", type=['xlsx', 'csv'])
+# Dosya Yükleme
+uploaded_file = st.file_uploader("📊 SAP ZMM012 Raporunu Yükleyin (Excel veya CSV)", type=['xlsx', 'csv'])
 
 if uploaded_file:
     try:
-        # Veriyi oku
+        # Veri okuma
         if uploaded_file.name.endswith('.csv'):
             df = pd.read_csv(uploaded_file)
         else:
             df = pd.read_excel(uploaded_file)
 
-        # Sütun İsimlerini Temizle (Gereksiz boşlukları siler)
+        # Sütun isimlerini temizle
         df.columns = df.columns.str.strip()
-
-        # İhtiyacımız olan ana sütunlar
-        columns_to_show = [
-            "Üretim Yeri Tanim", 
-            "Satınalma grubu", 
-            "SA siparişi miktarı", 
-            "SAS ölçü birimi", 
-            "Kısa metin"
-        ]
         
-        # Dosyada mevcut olan sütunları bul
-        existing_cols = [col for col in columns_to_show if col in df.columns]
+        # Gösterilecek sütunlar (Mal grubu eklendi)
+        cols = ["Üretim Yeri Tanim", "Satınalma grubu", "Mal grubu", "SA siparişi miktarı", "SAS ölçü birimi", "Kısa metin"]
+        existing = [c for c in cols if c in df.columns]
         
-        if not existing_cols:
-            st.error("Dosyada beklenen sütunlar (Üretim Yeri Tanim vb.) bulunamadı!")
+        if not existing:
+            st.error("Gerekli sütunlar (Üretim Yeri Tanim, Mal grubu vb.) bulunamadı.")
         else:
-            # Sadece seçilen sütunları al
-            display_df = df[existing_cols].copy()
-            
-            # Veri Temizleme: Boş üretim yerlerini 'Belirtilmemiş' yap
-            if "Üretim Yeri Tanim" in display_df.columns:
-                display_df["Üretim Yeri Tanim"] = display_df["Üretim Yeri Tanim"].fillna("Belirtilmemiş").astype(str)
-            
-            # --- FİLTRELEME (Kenar Çubuğu) ---
+            data = df[existing].copy()
+            # Veri ön hazırlığı
+            for c in ["Üretim Yeri Tanim", "Mal grubu"]:
+                if c in data.columns:
+                    data[c] = data[c].fillna("N/A").astype(str)
+
+            # --- YAN MENÜ FİLTRELEME ---
             st.sidebar.header("🔍 Filtreleme Paneli")
             
-            if "Üretim Yeri Tanim" in display_df.columns:
-                uretim_yerleri = sorted(display_df["Üretim Yeri Tanim"].unique())
-                secilen_yerler = st.sidebar.multiselect("Üretim Yerlerini Seçin", uretim_yerleri, default=uretim_yerleri)
-                
-                # Tabloyu filtrele
-                final_df = display_df[display_df["Üretim Yeri Tanim"].isin(secilen_yerler)]
-                
-                # --- ANA EKRAN GÖSTERİMİ ---
-                st.subheader(f"📍 Filtrelenmiş Stok Verileri ({len(final_df)} Kayıt)")
-                st.dataframe(final_df, use_container_width=True)
-                
-                # İndirme Butonu
-                st.divider()
-                csv_data = final_df.to_csv(index=False).encode('utf-8-sig')
-                st.download_button(
-                    label="📥 Listeyi CSV Olarak İndir",
-                    data=csv_data,
-                    file_name="stok_kontrol_verisi.csv",
-                    mime="text/csv"
-                )
-            else:
-                st.dataframe(display_df, use_container_width=True)
+            # Üretim Yeri Filtresi
+            sites = sorted(data["Üretim Yeri Tanim"].unique())
+            sel_sites = st.sidebar.multiselect("📍 Üretim Yerleri", sites, default=sites)
+            
+            # Mal Grubu Filtresi (Senin script'te kullandığın kodlar)
+            groups = sorted(data["Mal grubu"].unique())
+            sel_groups = st.sidebar.multiselect("🔢 Mal Grubu Numaraları", groups, default=groups)
+
+            # Filtreleme İşlemi
+            filtered = data[(data["Üretim Yeri Tanim"].isin(sel_sites)) & (data["Mal grubu"].isin(sel_groups))]
+
+            # --- ANALİZ METRİKLERİ ---
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Toplam Kalem", f"{len(filtered)} Adet")
+            c2.metric("Seçili Üretim Yeri", len(sel_sites))
+            if "SA siparişi miktarı" in filtered.columns:
+                c3.metric("Toplam Sipariş Miktarı", f"{filtered['SA siparişi miktarı'].sum():,.0f}")
+
+            # --- VERİ TABLOSU ---
+            st.markdown("### 📋 Güncel Liste")
+            st.dataframe(filtered, use_container_width=True, height=500)
+
+            # --- DIŞA AKTARMA ---
+            st.sidebar.markdown("---")
+            csv = filtered.to_csv(index=False).encode('utf-8-sig')
+            st.sidebar.download_button("📥 Filtrelenmiş Listeyi İndir", csv, "stok_kontrol_raporu.csv", "text/csv")
 
     except Exception as e:
-        st.error(f"Dosya işlenirken bir hata oluştu: {e}")
+        st.error(f"Dosya işlenirken hata oluştu: {e}")
 else:
-    st.info("Lütfen işlem yapmak için bir SAP veri dosyası yükleyin.")
+    st.info("💡 Başlamak için lütfen bir SAP veri dosyası yükleyin.")
 
-# Alt Bilgi
 st.markdown("---")
-st.caption("Enerjisa Üretim Tedarik ve Ticari Yönetim - Gelecek Nesil Raporlama v1.1")
+st.caption("Enerjisa Üretim Tedarik ve Ticari Yönetim | v2.0")
