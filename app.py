@@ -8,18 +8,15 @@ st.set_page_config(page_title="Enerjisa Üretim - Stok Kontrol", layout="wide")
 # --- ÖZEL TASARIM (CSS) ---
 st.markdown("""
     <style>
-    .stApp {
-        background-color: white;
-    }
+    .stApp { background-color: white; }
     .main-title {
         color: #004a99;
         font-family: 'Segoe UI', sans-serif;
         font-weight: 700;
         text-align: center;
-        margin-top: -25px; /* Logoya iyice yaklaştırır */
-        font-size: 20px; /* Net ve küçük bir değer */
+        margin-top: -25px;
+        font-size: 20px;
         letter-spacing: 0.5px;
-        line-height: 1.2;
     }
     .signature {
         color: #aaaaaa;
@@ -29,10 +26,13 @@ st.markdown("""
         font-style: italic;
         margin-top: 5px;
     }
-    .stMetric {
-        border: 1px solid #004a99;
-        border-radius: 8px;
-        background-color: rgba(0, 74, 153, 0.01);
+    /* Filtreleme alanını daha temiz göster */
+    .filter-container {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px solid #dee2e6;
+        margin-bottom: 20px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -43,22 +43,17 @@ if os.path.exists("logo.jpg"):
 
 # --- 2. LOGO (ESA.PNG) VE BAŞLIKLAR ---
 st.markdown("<br>", unsafe_allow_html=True)
-
-# Logo alanı
 col1, col2, col3 = st.columns([1.5, 1.2, 1.5]) 
 with col2:
     if os.path.exists("esa.png"):
         st.image("esa.png", use_container_width=True)
-    else:
-        st.warning("⚠️ esa.png bulunamadı.")
 
-# BAŞLIK (h1 yerine doğrudan div/p kullanarak boyutu sabitledik)
 st.markdown('<div class="main-title">TEDARİK VE TİCARİ YÖNETİM STOK KONTROL SAYFASI</div>', unsafe_allow_html=True)
 st.markdown('<div class="signature">Hazırlayan: Onur Sinoplu</div>', unsafe_allow_html=True)
 st.markdown("---")
 
 # --- DOSYA YÜKLEME ---
-uploaded_file = st.file_uploader("📊 SAP ZMM012 Raporunu Buraya Sürükleyin", type=['xlsx', 'csv'])
+uploaded_file = st.file_uploader("📊 SAP Raporunu Yükleyin", type=['xlsx', 'csv'])
 
 if uploaded_file:
     try:
@@ -69,49 +64,37 @@ if uploaded_file:
 
         df.columns = df.columns.str.strip()
         
-        # Sütunlar
+        # Sütun seçimi
         cols = ["Üretim Yeri Tanim", "Satınalma grubu", "Mal grubu", "SA siparişi miktarı", "SAS ölçü birimi", "Kısa metin"]
         existing = [c for c in cols if c in df.columns]
         
-        if not existing:
-            st.error("Gerekli sütunlar bulunamadı.")
-        else:
+        if existing:
             data = df[existing].copy()
-            for c in ["Üretim Yeri Tanim", "Mal grubu"]:
-                if c in data.columns:
-                    data[c] = data[c].fillna("N/A").astype(str)
-
-            # --- YAN MENÜ FİLTRELEME ---
-            st.sidebar.header("🔍 Filtreleme Seçenekleri")
-            all_sites = sorted(data["Üretim Yeri Tanim"].unique())
-            all_groups = sorted(data["Mal grubu"].unique())
             
-            sel_sites = st.sidebar.multiselect("📍 Üretim Yerleri", all_sites, default=all_sites)
-            sel_groups = st.sidebar.multiselect("🔢 Mal Grubu Numaraları", all_groups, default=all_groups)
+            st.markdown("### 🔍 İnteraktif Filtreleme Paneli")
+            st.info("💡 **Excel Tarzı Filtreleme:** Aşağıdaki tablonun sütun başlıklarına tıklayarak arama yapabilir, sıralayabilir veya belirli değerleri seçebilirsiniz.")
 
-            # Filtreleme
-            filtered = data[(data["Üretim Yeri Tanim"].isin(sel_sites)) & (data["Mal grubu"].isin(sel_groups))]
+            # --- EXCEL TARZI FİLTRELEME (st.data_editor) ---
+            # Bu modül kullanıcının tablo üzerinde Excel gibi işlem yapmasına olanak tanır
+            event = st.dataframe(
+                data,
+                use_container_width=True,
+                height=600,
+                hide_index=True,
+                column_config={
+                    "SA siparişi miktarı": st.column_config.NumberColumn("Miktar", format="%d"),
+                    "Mal grubu": st.column_config.TextColumn("Mal Grubu No")
+                }
+            )
 
-            # --- ANALİZ KARTLARI ---
-            m1, m2, m3 = st.columns(3)
-            m1.metric("Toplam Kalem", f"{len(filtered)} Adet")
-            m2.metric("Seçili Üretim Yeri", len(sel_sites))
-            if "SA siparişi miktarı" in filtered.columns:
-                m3.metric("Toplam Sipariş Miktarı", f"{filtered['SA siparişi miktarı'].sum():,.0f}")
-
-            # --- VERİ TABLOSU ---
-            st.markdown("### 📋 Güncel Stok Listesi")
-            st.dataframe(filtered, use_container_width=True, height=500)
-
-            # İndirme Butonu
-            st.sidebar.markdown("---")
-            csv = filtered.to_csv(index=False).encode('utf-8-sig')
-            st.sidebar.download_button("📥 Veriyi CSV Olarak İndir", csv, "stok_kontrol_raporu.csv", "text/csv")
-
+            # İndirme Seçeneği
+            csv = data.to_csv(index=False).encode('utf-8-sig')
+            st.download_button("📥 Mevcut Veriyi İndir (CSV)", csv, "stok_raporu.csv", "text/csv")
+            
     except Exception as e:
         st.error(f"Hata: {e}")
 else:
-    st.info("💡 Lütfen bir SAP dosyası yükleyerek analize başlayın.")
+    st.info("💡 Başlamak için lütfen bir SAP dosyası yükleyin.")
 
-st.markdown("<br><br>", unsafe_allow_html=True)
+st.markdown("<br>", unsafe_allow_html=True)
 st.caption("Enerjisa Üretim Stok Kontrol Sistemi | Onur Sinoplu")
