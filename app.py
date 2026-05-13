@@ -8,7 +8,9 @@ st.set_page_config(page_title="Enerjisa Üretim - Stok Kontrol", layout="wide")
 # --- ÖZEL TASARIM (CSS) ---
 st.markdown("""
     <style>
-    .stApp { background-color: white; }
+    .stApp {
+        background-color: white;
+    }
     .main-title {
         color: #004a99;
         font-family: 'Segoe UI', sans-serif;
@@ -26,13 +28,10 @@ st.markdown("""
         font-style: italic;
         margin-top: 5px;
     }
-    /* Filtreleme alanını daha temiz göster */
-    .filter-container {
-        background-color: #f8f9fa;
-        padding: 15px;
-        border-radius: 10px;
-        border: 1px solid #dee2e6;
-        margin-bottom: 20px;
+    .stMetric {
+        border: 1px solid #004a99;
+        border-radius: 8px;
+        background-color: rgba(0, 74, 153, 0.01);
     }
     </style>
     """, unsafe_allow_html=True)
@@ -43,6 +42,7 @@ if os.path.exists("logo.jpg"):
 
 # --- 2. LOGO (ESA.PNG) VE BAŞLIKLAR ---
 st.markdown("<br>", unsafe_allow_html=True)
+
 col1, col2, col3 = st.columns([1.5, 1.2, 1.5]) 
 with col2:
     if os.path.exists("esa.png"):
@@ -53,7 +53,7 @@ st.markdown('<div class="signature">Hazırlayan: Onur Sinoplu</div>', unsafe_all
 st.markdown("---")
 
 # --- DOSYA YÜKLEME ---
-uploaded_file = st.file_uploader("📊 SAP Raporunu Yükleyin", type=['xlsx', 'csv'])
+uploaded_file = st.file_uploader("📊 SAP ZMM012 Raporunu Buraya Sürükleyin", type=['xlsx', 'csv'])
 
 if uploaded_file:
     try:
@@ -64,37 +64,63 @@ if uploaded_file:
 
         df.columns = df.columns.str.strip()
         
-        # Sütun seçimi
-        cols = ["Üretim Yeri Tanim", "Satınalma grubu", "Mal grubu", "SA siparişi miktarı", "SAS ölçü birimi", "Kısa metin"]
-        existing = [c for c in cols if c in df.columns]
+        # Kullanılacak Sütunlar
+        cols_to_show = ["Üretim Yeri Tanim", "Satınalma grubu", "Mal grubu", "SA siparişi miktarı", "SAS ölçü birimi", "Kısa metin"]
+        existing = [c for c in cols_to_show if c in df.columns]
         
-        if existing:
+        if not existing:
+            st.error("Gerekli sütunlar bulunamadı.")
+        else:
             data = df[existing].copy()
-            
-            st.markdown("### 🔍 İnteraktif Filtreleme Paneli")
-            st.info("💡 **Excel Tarzı Filtreleme:** Aşağıdaki tablonun sütun başlıklarına tıklayarak arama yapabilir, sıralayabilir veya belirli değerleri seçebilirsiniz.")
+            for c in data.columns:
+                data[c] = data[c].fillna("N/A")
 
-            # --- EXCEL TARZI FİLTRELEME (st.data_editor) ---
-            # Bu modül kullanıcının tablo üzerinde Excel gibi işlem yapmasına olanak tanır
-            event = st.dataframe(
-                data,
-                use_container_width=True,
-                height=600,
-                hide_index=True,
-                column_config={
-                    "SA siparişi miktarı": st.column_config.NumberColumn("Miktar", format="%d"),
-                    "Mal grubu": st.column_config.TextColumn("Mal Grubu No")
-                }
-            )
-
-            # İndirme Seçeneği
-            csv = data.to_csv(index=False).encode('utf-8-sig')
-            st.download_button("📥 Mevcut Veriyi İndir (CSV)", csv, "stok_raporu.csv", "text/csv")
+            # --- DİNAMİK FİLTRELEME PANELİ (ANA EKRAN) ---
+            st.markdown("### 🔍 Veri Filtreleme")
             
+            # Filtreleri yan yana dizmek için kolonlar oluşturalım
+            f_col1, f_col2, f_col3 = st.columns(3)
+            
+            with f_col1:
+                unique_sites = sorted(data["Üretim Yeri Tanim"].unique().tolist())
+                sel_sites = st.multiselect("📍 Üretim Yeri Seçin", unique_sites, default=unique_sites)
+            
+            with f_col2:
+                unique_groups = sorted(data["Mal grubu"].unique().astype(str).tolist())
+                sel_groups = st.multiselect("🔢 Mal Grubu Seçin", unique_groups, default=unique_groups)
+            
+            with f_col3:
+                unique_purchase = sorted(data["Satınalma grubu"].unique().astype(str).tolist())
+                sel_purchase = st.multiselect("💼 Satınalma Grubu Seçin", unique_purchase, default=unique_purchase)
+
+            # Filtreleri Uygula
+            filtered = data[
+                (data["Üretim Yeri Tanim"].isin(sel_sites)) & 
+                (data["Mal grubu"].astype(str).isin(sel_groups)) &
+                (data["Satınalma grubu"].astype(str).isin(sel_purchase))
+            ]
+
+            st.markdown("---")
+
+            # --- ANALİZ KARTLARI ---
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Toplam Kalem", f"{len(filtered)} Adet")
+            m2.metric("Aktif Filtre", f"{len(sel_sites)} Üretim Yeri")
+            if "SA siparişi miktarı" in filtered.columns:
+                m3.metric("Toplam Miktar", f"{filtered['SA siparişi miktarı'].sum():,.0f}")
+
+            # --- VERİ TABLOSU ---
+            st.markdown("### 📋 Filtrelenmiş Liste")
+            st.dataframe(filtered, use_container_width=True, height=500)
+
+            # İndirme Butonu
+            csv = filtered.to_csv(index=False).encode('utf-8-sig')
+            st.download_button("📥 Seçili Veriyi İndir (CSV)", csv, "stok_raporu.csv", "text/csv")
+
     except Exception as e:
         st.error(f"Hata: {e}")
 else:
-    st.info("💡 Başlamak için lütfen bir SAP dosyası yükleyin.")
+    st.info("💡 Lütfen bir SAP dosyası yükleyerek analize başlayın.")
 
-st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("<br><br>", unsafe_allow_html=True)
 st.caption("Enerjisa Üretim Stok Kontrol Sistemi | Onur Sinoplu")
