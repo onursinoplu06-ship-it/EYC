@@ -5,35 +5,35 @@ import os
 # Sayfa Ayarları
 st.set_page_config(page_title="Enerjisa Üretim - Stok Kontrol", layout="wide")
 
-# --- TASARIM VE ÜST GÖRSEL (CSS) ---
+# --- ÖZEL TASARIM (CSS) ---
 st.markdown("""
     <style>
-    /* Sayfa genel arka planı beyaz */
     .stApp {
         background-color: white;
     }
-    
-    /* Üstteki görselin (Banner) ayarları */
-    .banner-container {
-        width: 100%;
-        height: auto;
-        overflow: hidden;
-        margin-top: -60px; /* Streamlit'in varsayılan boşluğunu kapatır */
-    }
-    
-    .banner-img {
-        width: 100%;
-        max-height: 400px; /* Görselin çok devasa olmaması için sınır */
-        object-fit: cover; /* Görseli kesmeden/bozmadan sığdırır */
-    }
-
-    /* Başlık ve Metin Renkleri */
-    h1, h2, h3 {
-        color: #004a99 !important;
+    .main-title {
+        color: #004a99;
+        font-family: 'Segoe UI', sans-serif;
+        font-weight: 800;
         text-align: center;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        margin-top: 20px;
+        margin-bottom: 5px;
     }
-    
+    .sub-title {
+        color: #555;
+        font-family: 'Segoe UI', sans-serif;
+        text-align: center;
+        font-weight: 400;
+        letter-spacing: 1px;
+        margin-bottom: 20px;
+    }
+    .signature {
+        color: #888;
+        font-family: 'Segoe UI', sans-serif;
+        font-size: 0.9em;
+        text-align: center;
+        font-style: italic;
+    }
     .stMetric {
         border: 1px solid #004a99;
         border-radius: 8px;
@@ -41,16 +41,23 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- ÜST GÖRSEL (BANNER) ---
+# --- 1. EN ÜST GENİŞ GÖRSEL (BANNER) ---
 if os.path.exists("logo.jpg"):
     st.image("logo.jpg", use_container_width=True)
-else:
-    st.warning("⚠️ logo.jpg dosyası bulunamadı. Lütfen ana dizine yükleyin.")
 
-# --- BAŞLIK ALANI ---
-st.markdown("<br>", unsafe_allow_html=True) # Küçük bir boşluk
-st.title("ENERJİSA ÜRETİM")
-st.subheader("TEDARİK VE TİCARİ YÖNETİM STOK KONTROL SAYFASI")
+# --- 2. LOGO (ESA.PNG) VE BAŞLIKLAR ---
+st.markdown("<br>", unsafe_allow_html=True)
+col1, col2, col3 = st.columns([2, 1, 2]) # Logoyu ortalamak için
+
+with col2:
+    if os.path.exists("esa.png"):
+        st.image("esa.png", use_container_width=True)
+    else:
+        st.warning("⚠️ esa.png bulunamadı.")
+
+# Başlık ve Hazırlayan Bilgisi
+st.markdown('<h1 class="main-title">TEDARİK VE TİCARİ YÖNETİM STOK KONTROL SAYFASI</h1>', unsafe_allow_html=True)
+st.markdown('<p class="signature">Hazırlayan: Onur Sinoplu</p>', unsafe_allow_html=True)
 st.markdown("---")
 
 # --- DOSYA YÜKLEME ---
@@ -90,13 +97,13 @@ if uploaded_file:
 
             # --- ANALİZ KARTLARI ---
             m1, m2, m3 = st.columns(3)
-            m1.metric("Kalem Sayısı", f"{len(filtered)} Adet")
+            m1.metric("Toplam Kalem", f"{len(filtered)} Adet")
             m2.metric("Seçili Üretim Yeri", len(sel_sites))
             if "SA siparişi miktarı" in filtered.columns:
                 m3.metric("Toplam Sipariş Miktarı", f"{filtered['SA siparişi miktarı'].sum():,.0f}")
 
             # --- VERİ TABLOSU ---
-            st.markdown("### 📋 Stok Listesi")
+            st.markdown("### 📋 Güncel Stok Listesi")
             st.dataframe(filtered, use_container_width=True, height=500)
 
             # İndirme Butonu
@@ -110,4 +117,4 @@ else:
     st.info("💡 Lütfen bir SAP dosyası yükleyerek analize başlayın.")
 
 st.markdown("<br><br>", unsafe_allow_html=True)
-st.caption("Enerjisa Üretim Stok Kontrol Sistemi v2.2")
+st.caption("Enerjisa Üretim Stok Kontrol Sistemi | Onur Sinoplu")
