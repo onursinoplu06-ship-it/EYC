@@ -14,29 +14,24 @@ st.markdown("""
     .main-title {
         color: #004a99;
         font-family: 'Segoe UI', sans-serif;
-        font-weight: 700;
+        font-weight: 600;
         text-align: center;
-        margin-top: -10px; /* Logo ile başlığı yakınlaştırır */
-        font-size: 1.8rem; /* Başlık boyutu küçültüldü */
+        margin-top: -15px; /* Logoya daha da yakınlaştırdık */
+        font-size: 1.1rem; /* Başlık boyutu yaklaşık yarıya indirildi */
+        letter-spacing: 1px;
     }
     .signature {
-        color: #888;
+        color: #999;
         font-family: 'Segoe UI', sans-serif;
-        font-size: 0.85rem;
+        font-size: 0.75rem; /* İmza boyutu da orantılı olarak küçültüldü */
         text-align: center;
         font-style: italic;
-        margin-top: -5px;
+        margin-top: -8px;
     }
     .stMetric {
         border: 1px solid #004a99;
         border-radius: 8px;
-        background-color: rgba(0, 74, 153, 0.02);
-    }
-    /* Logo konteyneri için özel ayar */
-    .logo-container {
-        display: flex;
-        justify-content: center;
-        padding: 20px;
+        background-color: rgba(0, 74, 153, 0.01);
     }
     </style>
     """, unsafe_allow_html=True)
@@ -48,12 +43,11 @@ if os.path.exists("logo.jpg"):
 # --- 2. LOGO (ESA.PNG) VE BAŞLIKLAR ---
 st.markdown("<br>", unsafe_allow_html=True)
 
-# Logoyu büyütmek için sütun oranlarını değiştirdik (Logo alanı genişledi)
+# Logo alanı (Orta sütun geniş tutuldu)
 col1, col2, col3 = st.columns([1.5, 1.2, 1.5]) 
 
 with col2:
     if os.path.exists("esa.png"):
-        # Logo genişliği artırıldı
         st.image("esa.png", use_container_width=True)
     else:
         st.warning("⚠️ esa.png bulunamadı.")
