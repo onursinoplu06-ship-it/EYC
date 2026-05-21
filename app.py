@@ -6,10 +6,19 @@ from datetime import datetime
 # Sayfa Ayarları
 st.set_page_config(page_title="Enerjisa Üretim - Stok & Transfer Yönetimi", layout="wide")
 
-# --- OTURUM HAFIZASI (SESSION STATE) İLKLENDİRME ---
-# Sayfalar arası veri taşımak ve kayıtları tutmak için hafıza alanı oluşturuyoruz
+# --- OTURUM HAFIZASI (SESSION STATE) ---
 if "transfer_kayitlari" not in st.session_state:
     st.session_state.transfer_kayitlari = []
+
+# --- SÜREÇ AŞAMALARI TANIMI ---
+SUREC_ASAMALARI = [
+    "Stok Kontrolü",
+    "Transfer Talebi",
+    "Ambar Onayı",
+    "Yönetici Onayı",
+    "Sevkiyat",
+    "Teslimat"
+]
 
 # --- ÖZEL TASARIM (CSS) ---
 st.markdown("""
@@ -31,12 +40,24 @@ st.markdown("""
         font-style: italic;
         margin-top: 5px;
     }
-    .nova-badge {
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-weight: bold;
-        font-size: 12px;
+    /* Profesyonel Süreç Akış Kutusu */
+    .step-container {
+        display: flex;
+        justify-content: space-between;
+        background-color: #f1f3f5;
+        padding: 10px 15px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+        border-left: 5px solid #004a99;
     }
+    .step-item {
+        font-family: 'Segoe UI', sans-serif;
+        font-size: 13px;
+        font-weight: 600;
+    }
+    .step-done { color: #2b8a3e; } /* Yeşil tikli biten süreç */
+    .step-active { color: #e67e22; font-weight: 700; } /* Turuncu aktif süreç */
+    .step-waiting { color: #adb5bd; } /* Gri bekleyen süreç */
     </style>
     """, unsafe_allow_html=True)
 
@@ -84,18 +105,12 @@ if sayfa == "📊 Stok Kontrol Paneli":
                 for c in data.columns:
                     data[c] = data[c].fillna("N/A")
 
-                # --- AKILLI FİLTRELEME PANELİ ---
                 st.markdown("### 🔍 Akıllı Filtreleme")
-                
                 filtre_modu = st.radio(
-                    "Çalışma Modu Seçin:",
-                    ["Tüm Verileri Göster", "Sadece Seçtiklerimi Göster"],
-                    horizontal=True,
-                    help="Sadece 1-2 grup seçecekseniz 'Sadece Seçtiklerimi Göster' moduna geçin."
+                    "Çalışma Modu Seçin:", ["Tüm Verileri Göster", "Sadece Seçtiklerimi Göster"], horizontal=True
                 )
 
                 f_col1, f_col2, f_col3 = st.columns(3)
-                
                 u_sites = sorted(data["Üretim Yeri Tanim"].unique().tolist())
                 u_groups = sorted(data["Mal grubu"].unique().astype(str).tolist())
                 u_purchase = sorted(data["Satınalma grubu"].unique().astype(str).tolist())
@@ -104,33 +119,19 @@ if sayfa == "📊 Stok Kontrol Paneli":
                 default_groups = u_groups if filtre_modu == "Tüm Verileri Göster" else []
                 default_purchase = u_purchase if filtre_modu == "Tüm Verileri Göster" else []
 
-                with f_col1:
-                    sel_sites = st.multiselect("📍 Üretim Yeri", u_sites, default=default_sites)
-                with f_col2:
-                    sel_groups = st.multiselect("🔢 Mal Grubu", u_groups, default=default_groups)
-                with f_col3:
-                    sel_purchase = st.multiselect("💼 Satınalma Grubu", u_purchase, default=default_purchase)
+                with f_col1: sel_sites = st.multiselect("📍 Üretim Yeri", u_sites, default=default_sites)
+                with f_col2: sel_groups = st.multiselect("🔢 Mal Grubu", u_groups, default=default_groups)
+                with f_col3: sel_purchase = st.multiselect("💼 Satınalma Grubu", u_purchase, default=default_purchase)
 
                 if filtre_modu == "Sadece Seçtiklerimi Göster":
-                    filtered = data[
-                        (data["Üretim Yeri Tanim"].isin(sel_sites)) & 
-                        (data["Mal grubu"].astype(str).isin(sel_groups)) &
-                        (data["Satınalma grubu"].astype(str).isin(sel_purchase))
-                    ]
+                    filtered = data[(data["Üretim Yeri Tanim"].isin(sel_sites)) & (data["Mal grubu"].astype(str).isin(sel_groups)) & (data["Satınalma grubu"].astype(str).isin(sel_purchase))]
                 else:
                     f_sites = sel_sites if sel_sites else u_sites
                     f_groups = sel_groups if sel_groups else u_groups
                     f_purchase = sel_purchase if sel_purchase else u_purchase
-                    
-                    filtered = data[
-                        (data["Üretim Yeri Tanim"].isin(f_sites)) & 
-                        (data["Mal grubu"].astype(str).isin(f_groups)) &
-                        (data["Satınalma grubu"].astype(str).isin(f_purchase))
-                    ]
+                    filtered = data[(data["Üretim Yeri Tanim"].isin(f_sites)) & (data["Mal grubu"].astype(str).isin(f_groups)) & (data["Satınalma grubu"].astype(str).isin(f_purchase))]
 
                 st.markdown("---")
-                
-                # --- METRİKLER ---
                 m1, m2, m3 = st.columns(3)
                 m1.metric("Toplam Kalem", f"{len(filtered)} Adet")
                 m2.metric("Listelenen Grup", len(sel_purchase) if sel_purchase else len(u_purchase))
@@ -138,10 +139,8 @@ if sayfa == "📊 Stok Kontrol Paneli":
                     m3.metric("Toplam Miktar", f"{filtered['SA siparişi miktarı'].sum():,.0f}")
 
                 st.dataframe(filtered, use_container_width=True, height=500)
-
                 csv = filtered.to_csv(index=False).encode('utf-8-sig')
                 st.download_button("📥 Veriyi İndir (CSV)", csv, "stok_raporu.csv", "text/csv")
-
         except Exception as e:
             st.error(f"Hata: {e}")
     else:
@@ -169,12 +168,7 @@ elif sayfa == "🔄 Mal Transfer Kayıt Sayfası":
         with col_form2:
             cikis_santral = st.text_input("📤 Çıkış Yapacak Santral (Kaynak)", placeholder="Örn: Bandırma DGKÇS")
             varis_santral = st.text_input("📥 Teslim Alacak Santral (Hedef)", placeholder="Örn: Çanakkale RES")
-            
-            transfer_tipi = st.radio(
-                "🔄 Transfer Türü",
-                ["Kalıcı Transfer", "Geçici Transfer (Geri Dönecek)"],
-                horizontal=True
-            )
+            transfer_tipi = st.radio("🔄 Transfer Türü", ["Kalıcı Transfer", "Geçici Transfer (Geri Dönecek)"], horizontal=True)
             aciklama = st.text_area("💬 Transfer Açıklaması / Notlar", placeholder="Transfer nedeni...")
 
         st.markdown("<br>", unsafe_allow_html=True)
@@ -183,7 +177,6 @@ elif sayfa == "🔄 Mal Transfer Kayıt Sayfası":
             if not sag_no or not malzeme_kodu or not cikis_santral or not varis_santral:
                 st.error("⚠️ Lütfen zorunlu alanları doldurun!")
             else:
-                # Yeni kaydı session_state listesine bir sözlük (dict) olarak ekliyoruz
                 yeni_kayit = {
                     "id": len(st.session_state.transfer_kayitlari) + 1,
                     "sag_no": sag_no,
@@ -194,13 +187,13 @@ elif sayfa == "🔄 Mal Transfer Kayıt Sayfası":
                     "varis": varis_santral,
                     "tip": transfer_tipi,
                     "tarih": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                    "nova_durum": "Talep Oluşturuldu" # Başlangıç onay statüsü
+                    "step_index": 0  # Sürecin hangi aşamada olduğunu tutan indeks (0 = Stok Kontrolü)
                 }
                 st.session_state.transfer_kayitlari.append(yeni_kayit)
-                st.success(f"🎉 {sag_no} numaralı Transfer Kaydı Başarıyla Hafızaya Alındı! Takip sayfasından kontrol edebilirsiniz.")
+                st.success(f"🎉 {sag_no} numaralı Transfer Kaydı Başarıyla Hafızaya Alındı!")
 
 # ==========================================
-# 3. SAYFA: MAL TRANSFER TAKİP SAYFASI (YENİ!)
+# 3. SAYFA: MAL TRANSFER TAKİP SAYFASI (YENİ SÜREÇ AKIŞLI)
 # ==========================================
 elif sayfa == "📋 Mal Transfer Takip Sayfası":
     st.markdown('<div class="main-title">MAL TRANSFER TAKİP VE NOVA ONAY SÜRECİ</div>', unsafe_allow_html=True)
@@ -208,54 +201,77 @@ elif sayfa == "📋 Mal Transfer Takip Sayfası":
     st.markdown("---")
 
     if not st.session_state.transfer_kayitlari:
-        st.info("💡 Henüz açılmış bir transfer kaydı bulunmuyor. Kayıt oluşturmak için 'Mal Transfer Kayıt Sayfası'nı kullanın.")
+        st.info("💡 Henüz açılmış bir transfer kaydı bulunmuyor.")
     else:
-        # Özet İstatistikler
         t_df = pd.DataFrame(st.session_state.transfer_kayitlari)
         
+        # Dinamik istatistik hesaplama
+        tamamlanan_sayisi = len(t_df[t_df['step_index'] == len(SUREC_ASAMALARI) - 1])
+        devam_eden_sayisi = len(t_df) - tamamlanan_sayisi
+
         m1, m2, m3 = st.columns(3)
         m1.metric("Toplam Transfer Talebi", f"{len(t_df)} Adet")
-        m2.metric("Bekleyen Nova Onayı", f"{len(t_df[t_df['nova_durum'] != 'Onaylandı'])} Kalem")
-        m3.metric("Tamamlanan", f"{len(t_df[t_df['nova_durum'] == 'Onaylandı'])} Kalem")
+        m2.metric("Süreci Devam Edenler", f"{devam_eden_sayisi} Kalem")
+        m3.metric("Teslim Edilenler (Tamamlanan)", f"{tamamlanan_sayisi} Kalem")
         
-        st.markdown("### 🔍 Güncel Transfer Talepleri ve Nova Durumu")
+        st.markdown("### 🔍 Güncel Transfer Talepleri ve Nova Onay Akışı")
         
-        # Kullanıcıların onay süreçlerini tek tek yönetebileceği interaktif bir alan tasarlayalım
         for idx, row in t_df.iterrows():
-            # Her kayıt için ayrı bir kutu (expander) açıyoruz
-            durum_rengi = "🔵" if row['nova_durum'] == "Talep Oluşturuldu" else "🟢" if row['nova_durum'] == "Onaylandı" else "🔴"
+            current_step_idx = row['step_index']
+            current_step_name = SUREC_ASAMALARI[current_step_idx]
             
-            with st.expander(f"{durum_rengi} SAG No: {row['sag_no']} | {row['cikis']} -> {row['varis']} ({row['tip']})"):
-                col_detay1, col_detay2, col_detay3 = st.columns([2, 2, 1])
+            # Başlık emojisi (Eğer son adımdaysa yeşil, değilse mavi süreç emojisi)
+            durum_emojisi = "🟢" if current_step_idx == len(SUREC_ASAMALARI) - 1 else "🔵"
+            
+            with st.expander(f"{durum_emojisi} SAG No: {row['sag_no']} | Mevcut Aşama: {current_step_name} ({row['cikis']} -> {row['varis']})"):
+                
+                # --- VISUAL PIPELINE (HTML/CSS SÜREÇ ÇİZGİSİ) ---
+                pipeline_html = '<div class="step-container">'
+                for i, step in enumerate(SUREC_ASAMALARI):
+                    if i < current_step_idx:
+                        # Geçmiş tamamlanmış adımlar (Yeşil Tik)
+                        pipeline_html += f'<span class="step-item step-done">✅ {step}</span>'
+                    elif i == current_step_idx:
+                        # Şu an aktif olan adım (Turuncu Ok)
+                        pipeline_html += f'<span class="step-item step-active">➔ {step}</span>'
+                    else:
+                        # Gelecek bekleyen adımlar (Gri Nokta)
+                        pipeline_html += f'<span class="step-item step-waiting">○ {step}</span>'
+                    
+                    if i < len(SUREC_ASAMALARI) - 1:
+                        pipeline_html += ' <span style="color:#adb5bd;">|</span> '
+                pipeline_html += '</div>'
+                
+                st.markdown(pipeline_html, unsafe_allow_html=True)
+                
+                # Detaylar ve Kontrol Butonu
+                col_detay1, col_detay2, col_control = st.columns([2, 2, 1])
                 
                 with col_detay1:
-                    st.markdown(f"**Stok Kodu:** {row['malzeme_kodu']}")
-                    st.markdown(f"**Mal Grubu No:** {row['mal_grubu']}")
-                    st.markdown(f"**Miktar:** {row['miktar']}")
+                    st.markdown(f"**Stok Kodu:** {row['malzeme_kodu']} | **Mal Grubu:** {row['mal_grubu']}")
+                    st.markdown(f"**Miktar:** {row['miktar']} | **Tür:** {row['tip']}")
                     
                 with col_detay2:
-                    st.markdown(f"**Oluşturulma Tarihi:** {row['tarih']}")
-                    st.markdown(f"**Nova Onay Durumu:** `{row['nova_durum']}`")
+                    st.markdown(f"**Kayıt Tarihi:** {row['tarih']}")
+                    st.markdown(f"**Mevcut Sorumluluk:** `{current_step_name}` aşamasında onay/işlem bekliyor.")
                 
-                # Nova Onay Süreci Butonları
-                with col_detay3:
-                    st.markdown("**Nova İşlemleri**")
-                    if row['nova_durum'] == "Talep Oluşturuldu":
-                        if st.button("✅ Onayla", key=f"onay_{row['id']}"):
-                            st.session_state.transfer_kayitlari[idx]['nova_durum'] = "Onaylandı"
+                with col_control:
+                    st.markdown("**Nova Süreç Yönetimi**")
+                    # Eğer süreç son aşamaya (Teslimat) gelmediyse butonu göster
+                    if current_step_idx < len(SUREC_ASAMALARI) - 1:
+                        next_step_name = SUREC_ASAMALARI[current_step_idx + 1]
+                        if st.button(f"➡️ '{next_step_name}' Aşamasına Geçir", key=f"next_{row['id']}", use_container_width=True):
+                            st.session_state.transfer_kayitlari[idx]['step_index'] += 1
                             st.rerun()
-                        if st.button("❌ Reddet", key=f"red_{row['id']}"):
-                            st.session_state.transfer_kayitlari[idx]['nova_durum'] = "Reddedildi"
-                            st.rerun()
-                    elif row['nova_durum'] == "Onaylandı":
-                        st.success("Süreç Tamamlandı")
                     else:
-                        st.error("Talep Reddedildi")
+                        st.success("🎉 Malzeme Teslim Edildi, Süreç Başarıyla Kapatıldı!")
 
-        # Toplu Tablo Görünümü
-        st.markdown("### 📋 Toplu Liste Görünümü")
+        # Toplu Genel Rapor
+        st.markdown("### 📋 Genel Durum Tablosu")
+        report_df = t_df.copy()
+        report_df["Mevcut Durum"] = report_df["step_index"].apply(lambda x: SUREC_ASAMALARI[x])
         st.dataframe(
-            t_df[["sag_no", "malzeme_kodu", "mal_grubu", "miktar", "cikis", "varis", "tip", "tarih", "nova_durum"]],
+            report_df[["sag_no", "malzeme_kodu", "mal_grubu", "miktar", "cikis", "varis", "tip", "tarih", "Mevcut Durum"]],
             use_container_width=True
         )
 
