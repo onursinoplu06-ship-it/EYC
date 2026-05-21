@@ -1,9 +1,15 @@
 import streamlit as st
 import pandas as pd
 import os
+from datetime import datetime
 
 # Sayfa Ayarları
-st.set_page_config(page_title="Enerjisa Üretim - Stok Kontrol & Transfer", layout="wide")
+st.set_page_config(page_title="Enerjisa Üretim - Stok & Transfer Yönetimi", layout="wide")
+
+# --- OTURUM HAFIZASI (SESSION STATE) İLKLENDİRME ---
+# Sayfalar arası veri taşımak ve kayıtları tutmak için hafıza alanı oluşturuyoruz
+if "transfer_kayitlari" not in st.session_state:
+    st.session_state.transfer_kayitlari = []
 
 # --- ÖZEL TASARIM (CSS) ---
 st.markdown("""
@@ -25,11 +31,11 @@ st.markdown("""
         font-style: italic;
         margin-top: 5px;
     }
-    .transfer-form {
-        background-color: #f8f9fa;
-        padding: 20px;
-        border-radius: 10px;
-        border: 1px solid #dee2e6;
+    .nova-badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-weight: bold;
+        font-size: 12px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -46,7 +52,10 @@ with col2:
 
 # --- NAVİGASYON (SAYFA SEÇİMİ) ---
 st.sidebar.title("📌 Menü")
-sayfa = st.sidebar.radio("Gitmek İstediğiniz Sayfa:", ["📊 Stok Kontrol Paneli", "🔄 Mal Transfer Kayıt Sayfası"])
+sayfa = st.sidebar.radio(
+    "Gitmek İstediğiniz Sayfa:", 
+    ["📊 Stok Kontrol Paneli", "🔄 Mal Transfer Kayıt Sayfası", "📋 Mal Transfer Takip Sayfası"]
+)
 st.sidebar.markdown("---")
 
 # ==========================================
@@ -130,7 +139,6 @@ if sayfa == "📊 Stok Kontrol Paneli":
 
                 st.dataframe(filtered, use_container_width=True, height=500)
 
-                # İndirme
                 csv = filtered.to_csv(index=False).encode('utf-8-sig')
                 st.download_button("📥 Veriyi İndir (CSV)", csv, "stok_raporu.csv", "text/csv")
 
@@ -149,7 +157,6 @@ elif sayfa == "🔄 Mal Transfer Kayıt Sayfası":
 
     st.markdown("### 📝 Yeni Transfer Kaydı Oluştur")
     
-    # Form Alanları
     with st.container():
         col_form1, col_form2 = st.columns(2)
         
@@ -163,32 +170,94 @@ elif sayfa == "🔄 Mal Transfer Kayıt Sayfası":
             cikis_santral = st.text_input("📤 Çıkış Yapacak Santral (Kaynak)", placeholder="Örn: Bandırma DGKÇS")
             varis_santral = st.text_input("📥 Teslim Alacak Santral (Hedef)", placeholder="Örn: Çanakkale RES")
             
-            # İstediğin Kalıcı / Geçici seçeneği
             transfer_tipi = st.radio(
                 "🔄 Transfer Türü",
                 ["Kalıcı Transfer", "Geçici Transfer (Geri Dönecek)"],
-                help="Malzemenin hedef santralde kalıcı mı olacağını yoksa geçici mi gittiğini belirtin.",
                 horizontal=True
             )
-            
-            aciklama = st.text_area("💬 Transfer Açıklaması / Notlar", placeholder="Transfer nedeni, onaylayan kişi vb...")
+            aciklama = st.text_area("💬 Transfer Açıklaması / Notlar", placeholder="Transfer nedeni...")
 
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # Kaydet Butonu
         if st.button("🚀 Transfer Kaydını Tamamla", use_container_width=True):
             if not sag_no or not malzeme_kodu or not cikis_santral or not varis_santral:
-                st.error("⚠️ Lütfen zorunlu alanları (SAG No, Stok Kodu, Çıkış ve Varış Santralleri) doldurun!")
+                st.error("⚠️ Lütfen zorunlu alanları doldurun!")
             else:
-                st.success(f"🎉 {sag_no} numaralı Transfer Kaydı Başarıyla Sistemde Oluşturuldu!")
-                
-                # Girilen verilerin özeti
-                st.markdown("#### 📋 Oluşturulan Kayıt Özeti")
-                ozet_data = {
-                    "Parametre": ["SAS/SAG No", "Malzeme Kodu", "Mal Grubu No", "Miktar", "Çıkış Santrali", "Varış Santrali", "Transfer Tipi", "Açıklama"],
-                    "Değer": [sag_no, malzeme_kodu, mal_grubu if mal_grubu else "Belirtilmedi", transfer_miktari, cikis_santral, varis_santral, transfer_tipi, aciklama if aciklama else "-"]
+                # Yeni kaydı session_state listesine bir sözlük (dict) olarak ekliyoruz
+                yeni_kayit = {
+                    "id": len(st.session_state.transfer_kayitlari) + 1,
+                    "sag_no": sag_no,
+                    "malzeme_kodu": malzeme_kodu,
+                    "mal_grubu": mal_grubu if mal_grubu else "N/A",
+                    "miktar": transfer_miktari,
+                    "cikis": cikis_santral,
+                    "varis": varis_santral,
+                    "tip": transfer_tipi,
+                    "tarih": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    "nova_durum": "Talep Oluşturuldu" # Başlangıç onay statüsü
                 }
-                st.table(pd.DataFrame(ozet_data))
+                st.session_state.transfer_kayitlari.append(yeni_kayit)
+                st.success(f"🎉 {sag_no} numaralı Transfer Kaydı Başarıyla Hafızaya Alındı! Takip sayfasından kontrol edebilirsiniz.")
+
+# ==========================================
+# 3. SAYFA: MAL TRANSFER TAKİP SAYFASI (YENİ!)
+# ==========================================
+elif sayfa == "📋 Mal Transfer Takip Sayfası":
+    st.markdown('<div class="main-title">MAL TRANSFER TAKİP VE NOVA ONAY SÜRECİ</div>', unsafe_allow_html=True)
+    st.markdown('<div class="signature">Hazırlayan: Onur Sinoplu</div>', unsafe_allow_html=True)
+    st.markdown("---")
+
+    if not st.session_state.transfer_kayitlari:
+        st.info("💡 Henüz açılmış bir transfer kaydı bulunmuyor. Kayıt oluşturmak için 'Mal Transfer Kayıt Sayfası'nı kullanın.")
+    else:
+        # Özet İstatistikler
+        t_df = pd.DataFrame(st.session_state.transfer_kayitlari)
+        
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Toplam Transfer Talebi", f"{len(t_df)} Adet")
+        m2.metric("Bekleyen Nova Onayı", f"{len(t_df[t_df['nova_durum'] != 'Onaylandı'])} Kalem")
+        m3.metric("Tamamlanan", f"{len(t_df[t_df['nova_durum'] == 'Onaylandı'])} Kalem")
+        
+        st.markdown("### 🔍 Güncel Transfer Talepleri ve Nova Durumu")
+        
+        # Kullanıcıların onay süreçlerini tek tek yönetebileceği interaktif bir alan tasarlayalım
+        for idx, row in t_df.iterrows():
+            # Her kayıt için ayrı bir kutu (expander) açıyoruz
+            durum_rengi = "🔵" if row['nova_durum'] == "Talep Oluşturuldu" else "🟢" if row['nova_durum'] == "Onaylandı" else "🔴"
+            
+            with st.expander(f"{durum_rengi} SAG No: {row['sag_no']} | {row['cikis']} -> {row['varis']} ({row['tip']})"):
+                col_detay1, col_detay2, col_detay3 = st.columns([2, 2, 1])
+                
+                with col_detay1:
+                    st.markdown(f"**Stok Kodu:** {row['malzeme_kodu']}")
+                    st.markdown(f"**Mal Grubu No:** {row['mal_grubu']}")
+                    st.markdown(f"**Miktar:** {row['miktar']}")
+                    
+                with col_detay2:
+                    st.markdown(f"**Oluşturulma Tarihi:** {row['tarih']}")
+                    st.markdown(f"**Nova Onay Durumu:** `{row['nova_durum']}`")
+                
+                # Nova Onay Süreci Butonları
+                with col_detay3:
+                    st.markdown("**Nova İşlemleri**")
+                    if row['nova_durum'] == "Talep Oluşturuldu":
+                        if st.button("✅ Onayla", key=f"onay_{row['id']}"):
+                            st.session_state.transfer_kayitlari[idx]['nova_durum'] = "Onaylandı"
+                            st.rerun()
+                        if st.button("❌ Reddet", key=f"red_{row['id']}"):
+                            st.session_state.transfer_kayitlari[idx]['nova_durum'] = "Reddedildi"
+                            st.rerun()
+                    elif row['nova_durum'] == "Onaylandı":
+                        st.success("Süreç Tamamlandı")
+                    else:
+                        st.error("Talep Reddedildi")
+
+        # Toplu Tablo Görünümü
+        st.markdown("### 📋 Toplu Liste Görünümü")
+        st.dataframe(
+            t_df[["sag_no", "malzeme_kodu", "mal_grubu", "miktar", "cikis", "varis", "tip", "tarih", "nova_durum"]],
+            use_container_width=True
+        )
 
 st.markdown("<br><br>", unsafe_allow_html=True)
 st.caption("Enerjisa Üretim Stok Kontrol ve Transfer Sistemi | Onur Sinoplu")
